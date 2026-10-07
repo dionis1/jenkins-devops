@@ -1,0 +1,83 @@
+# Apply once as cluster administrator. Bind namespace roles to separate identities.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: exam-deployer
+rules:
+  - apiGroups: [""]
+    resources: [services, configmaps, secrets, persistentvolumeclaims, pods]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [""]
+    resources: [pods/portforward]
+    verbs: [create]
+  - apiGroups: [apps]
+    resources: [deployments, statefulsets, replicasets]
+    verbs: [get, list, watch, create, update, patch, delete]
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: jenkins-nonprod
+  namespace: dev
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: jenkins-prod
+  namespace: prod
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: jenkins-deployer
+  namespace: dev
+subjects:
+  - kind: ServiceAccount
+    name: jenkins-nonprod
+    namespace: dev
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: exam-deployer
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: jenkins-deployer
+  namespace: qa
+subjects:
+  - kind: ServiceAccount
+    name: jenkins-nonprod
+    namespace: dev
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: exam-deployer
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: jenkins-deployer
+  namespace: staging
+subjects:
+  - kind: ServiceAccount
+    name: jenkins-nonprod
+    namespace: dev
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: exam-deployer
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: jenkins-deployer
+  namespace: prod
+subjects:
+  - kind: ServiceAccount
+    name: jenkins-prod
+    namespace: prod
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: exam-deployer

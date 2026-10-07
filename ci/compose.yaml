@@ -1,0 +1,30 @@
+services:
+  movie_service:
+    image: ${REGISTRY}/movie-service:${IMAGE_TAG}
+    volumes: !reset []
+    ports: !reset []
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --loop asyncio
+    depends_on:
+      movie_db:
+        condition: service_healthy
+  cast_service:
+    image: ${REGISTRY}/cast-service:${IMAGE_TAG}
+    volumes: !reset []
+    ports: !reset []
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --loop asyncio
+    depends_on:
+      cast_db:
+        condition: service_healthy
+  movie_db:
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U movie_db_username -d movie_db_dev"]
+      interval: 2s
+      retries: 30
+  cast_db:
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U cast_db_username -d cast_db_dev"]
+      interval: 2s
+      retries: 30
+  nginx:
+    ports: !override
+      - "127.0.0.1::8080"

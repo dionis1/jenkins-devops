@@ -1,0 +1,169 @@
+{{- range $service := list "movie" "cast" }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $service }}-db
+spec:
+  ports:
+    - port: 5432
+  selector:
+    app: {{ $service }}-db
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $service }}-db
+spec:
+  serviceName: {{ $service }}-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ $service }}-db
+  template:
+    metadata:
+      labels:
+        app: {{ $service }}-db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:12.1-alpine
+          env:
+            - name: POSTGRES_USER
+              value: {{ $service }}_db_username
+            - name: POSTGRES_DB
+              value: {{ $service }}_db_dev
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.databaseSecret }}
+                  key: {{ $service }}-password
+          ports:
+            - containerPort: 5432
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: {{ $.Values.storageSize }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $service }}-service
+spec:
+  ports:
+    - port: 8000
+  selector:
+    app: {{ $service }}-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $service }}-service
+spec:
+  replicas: {{ $.Values.replicas }}
+  selector:
+    matchLabels:
+      app: {{ $service }}-service
+  template:
+    metadata:
+      labels:
+        app: {{ $service }}-service
+    spec:
+      initContainers:
+        - name: wait-db
+          image: postgres:12.1-alpine
+          command: ["sh", "-c", "until pg_isready -h {{ $service }}-db -U {{ $service }}_db_username; do sleep 2; done"]
+      containers:
+        - name: api
+          image: "{{ $.Values.registry }}/{{ $service }}-service:{{ $.Values.tag }}"
+          command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--loop", "asyncio"]
+          env:
+            - name: DATABASE_URI
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.databaseSecret }}
+                  key: {{ $service }}-uri
+            - name: CAST_SERVICE_HOST_URL
+              value: http://cast-service:8000/api/v1/casts/
+          ports:
+            - containerPort: 8000
+          readinessProbe:
+            httpGet:
+              path: /api/v1/{{ $service }}s/openapi.json
+              port: 8000
+          livenessProbe:
+            httpGet:
+              path: /api/v1/{{ $service }}s/openapi.json
+              port: 8000
+            initialDelaySeconds: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+{{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gateway-config
+data:
+  default.conf: |
+    server {
+      listen 8080;
+      location /api/v1/movies { proxy_pass http://movie-service:8000; }
+      location /api/v1/casts { proxy_pass http://cast-service:8000; }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gateway
+  template:
+    metadata:
+      labels:
+        app: gateway
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:stable-alpine
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: config
+              mountPath: /etc/nginx/conf.d
+          readinessProbe:
+            httpGet:
+              path: /api/v1/movies/openapi.json
+              port: 8080
+      volumes:
+        - name: config
+          configMap:
+            name: gateway-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+spec:
+  ports:
+    - port: 8080
+      targetPort: 8080
+  selector:
+    app: gateway

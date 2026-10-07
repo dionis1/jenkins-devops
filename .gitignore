@@ -2,3 +2,8 @@ env
 __pycache__
 .vscode
 .idea
+.docker-ci/
+*.log
+rendered.yaml
+deliverables/*.zip
+deliverables/*.pdf
