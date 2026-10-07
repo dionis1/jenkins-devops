@@ -3,7 +3,7 @@ set -euo pipefail
 namespace=$1
 case "$namespace" in dev|qa|staging|prod) ;; *) exit 2;; esac
 # Existing Secret must contain movie-uri, cast-uri, movie-password, cast-password.
-kubectl -n "$namespace" get secret database-credentials >/dev/null
+kubectl -n "$namespace" get secret cinema-database-credentials >/dev/null
 helm upgrade --install cinema charts -n "$namespace" --set-string registry="$REGISTRY" --set-string tag="$IMAGE_TAG" --wait --rollback-on-failure --timeout 5m
 kubectl -n "$namespace" rollout status deployment/cinema-movie-service --timeout=120s
 kubectl -n "$namespace" rollout status deployment/cinema-cast-service --timeout=120s

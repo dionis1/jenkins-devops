@@ -22,7 +22,9 @@ Minikube has been started and all four namespaces verified Active. To restart
 the local cluster later, use `minikube start --driver=docker` and verify `kubectl get nodes`.
 Apply environments with `kubectl apply -f infra/namespaces.yaml`.
 
-For each namespace, provision a Secret called `database-credentials` with four
+For each namespace, a Secret has been provisioned using
+`python3 infra/bootstrap-secrets.py`. This creates it only when absent and does
+not print credentials. The Secret is called `cinema-database-credentials` with four
 keys: `movie-password`, `cast-password`, `movie-uri`, `cast-uri`.
 URIs must be URL-encoded and match these patterns:
 
@@ -51,6 +53,11 @@ Stage View. Configure a Linux agent named/labeled `docker-kubernetes`, with Java
 21, Git, Python 3, curl, Docker Engine access, Docker Compose >=2.24.4, kubectl,
 and Helm 4. The controller container does not include these agent tools.
 Use Jenkins's SSH agent launch method or its generated inbound-agent command.
+For this workstation, Java 21 and the remoting JAR are prepared under `/tmp`.
+Create an inbound node named `exam-agent`, label it `docker-kubernetes`, set
+one executor, and save its secret in a private local file. Then run
+`JENKINS_AGENT_SECRET_FILE=/path/to/private-secret bash infra/start-agent.sh`
+on the host. The `/tmp` runtime must be prepared again after a reboot.
 The agent must reach the cluster API; a container cannot use a localhost-only
 kubeconfig endpoint. Limit the agent to one executor because deployment smoke
 tests use local port 18080.

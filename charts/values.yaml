@@ -1,5 +1,5 @@
 registry: REPLACE_DOCKERHUB_USERNAME
 tag: latest
 replicas: 1
-databaseSecret: database-credentials
+databaseSecret: cinema-database-credentials
 storageSize: 1Gi
