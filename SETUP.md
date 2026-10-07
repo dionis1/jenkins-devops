@@ -26,8 +26,8 @@ For each namespace, provision a Secret called `database-credentials` with four
 keys: `movie-password`, `cast-password`, `movie-uri`, `cast-uri`.
 URIs must be URL-encoded and match these patterns:
 
-- `postgresql://movie_db_username:PASSWORD@movie-db/movie_db_dev`
-- `postgresql://cast_db_username:PASSWORD@cast-db/cast_db_dev`
+- `postgresql://movie_db_username:PASSWORD@cinema-movie-db/movie_db_dev`
+- `postgresql://cast_db_username:PASSWORD@cinema-cast-db/cast_db_dev`
 
 Use different passwords per environment. Create these secrets through a secret
 manager or a local file, never through committed manifests. Keep passwords stable
@@ -86,7 +86,7 @@ branch is capitalized `Master`.
 After deployment, view an environment:
 
 ```sh
-kubectl -n dev port-forward service/gateway 8080:8080
+kubectl -n dev port-forward service/cinema-gateway 8080:8080
 ```
 
 Then open `/api/v1/movies/docs` and `/api/v1/casts/docs` at localhost:8080.
