@@ -7,3 +7,5 @@ __pycache__
 rendered.yaml
 deliverables/*.zip
 deliverables/*.pdf
+
+deliverables/screenshots/

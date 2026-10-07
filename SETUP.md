@@ -101,7 +101,18 @@ The Compose integration test checks database writes, reads, service-to-service
 cast validation, and rejection of nonexistent casts. Deployment checks verify
 readiness and movie database access without inserting production test records.
 
-## Required evidence and submission
+## Verified results and submission
+
+The master builds #1 and #2 and dev build #1 succeeded. Build #2 exercised the
+manual production gate and completed production rollout. The PDF and ZIP have
+been produced from six real screenshots.
+
+The stored Kubernetes credentials use separate service-account tokens valid for
+24 hours from creation on 7 October 2026. Renew both Jenkins credential files
+before using this setup later. The local build agent runs from a terminal
+session and must be restarted after termination or reboot.
+
+## Recreating evidence
 
 Capture real Jenkins screenshots after successful runs:
 
