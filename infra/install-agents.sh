@@ -25,7 +25,7 @@ python3 infra/generate-kubeconfigs.py --output-dir .jenkins-local/credentials
 "${compose[@]}" cp .jenkins-local/credentials/nonprod.json jenkins:/var/jenkins_home/exam-kubeconfig.json
 "${compose[@]}" cp .jenkins-local/credentials/prod.json production:/var/jenkins_home/exam-kubeconfig.json
 # Jenkins runs as uid 1000 in both images. Fix ownership before starting production.
-"${compose[@]}" run --rm --no-deps -u root --entrypoint sh production -c 'chown -R 1000:1000 /var/jenkins_home; chmod 600 /var/jenkins_home/exam-kubeconfig.json'
+"${compose[@]}" run --rm --no-deps -u root --entrypoint sh production -c 'chown -R 1000:1000 /var/jenkins_home/config.xml /var/jenkins_home/users /var/jenkins_home/plugins /var/jenkins_home/exam-kubeconfig.json && chmod 600 /var/jenkins_home/exam-kubeconfig.json'
 "${compose[@]}" exec -T -u root jenkins sh -c 'chown 1000:1000 /var/jenkins_home/exam-kubeconfig.json; chmod 600 /var/jenkins_home/exam-kubeconfig.json'
 "${compose[@]}" up -d jenkins docker production
 # Stop only the legacy exam agent, leaving other Java processes alone.

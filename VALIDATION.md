@@ -35,8 +35,31 @@ Jenkins execution results:
 - Production movie, cast and gateway deployments verified ready.
 - Evidence PDF contains six screenshots captured directly from live Jenkins.
 
-Operational limits: Kubernetes credential tokens expire 24 hours after their
-creation on 7 October 2026. Renew the Jenkins kubeconfig credentials before later
-runs. The local agent runtime and work directory are under `/tmp`, so rebuild the
-runtime and reconnect the agent after a reboot. This is a local exam installation
-using the legacy application dependencies, not a managed production platform.
+## Infrastructure fixes verified on 2026-10-08
+
+- Added a kubeconfig generator that writes only scoped service-account identities
+  with mode 0600; regression tests check that administrator key material is excluded.
+- Ran `infra/renew-credentials.sh` successfully. Both controllers restarted and
+  loaded renewed credentials. Tokens expire on 9 October 2026 at approximately
+  09:13 Europe/Tirane time; renew before later builds.
+- Replaced the terminal agent with a Compose service and persistent workspace.
+  Docker is enabled at boot; the agent reconnects after controller restarts.
+- Agent and its separate Docker daemon have no workstation Docker socket or
+  administrator kubeconfig mounted. The daemon sees only its own storage and
+  the agent workspace. Controller home volumes are separate from the agent.
+- Build Jenkins has only `dockerhub` and `kubeconfig`; production Jenkins has only
+  `kubeconfig-prod`. The build controller has zero local executors.
+- Kubernetes authorization checks: nonprod can patch dev but cannot patch prod;
+  prod can patch prod but cannot patch dev.
+- A server dry-run privileged pod creation using nonprod credentials was denied
+  by namespace baseline Pod Security.
+- The production controller's fixed pipeline passed Jenkins Declarative Pipeline
+  validation. It checks out master, requires a matching commit suffix in the
+  image tag, and waits for administrator approval. No production deployment was
+  initiated as part of these infrastructure fixes.
+- Rollout regression tests pass for a quiet temporary connection failure followed
+  by success, and for a persistent failure with visible error diagnostics.
+
+The evidence PDF and ZIP still contain the original 7 October runs; they have not
+been regenerated. The legacy application dependencies and the previously reported
+movie-update response bug were outside this change's scope.

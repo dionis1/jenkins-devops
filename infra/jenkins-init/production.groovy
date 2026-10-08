@@ -42,6 +42,9 @@ if (file.exists()) {
 }
 def job = j.getItem('production-master') ?: j.createProject(WorkflowJob, 'production-master')
 job.addProperty(new hudson.model.ParametersDefinitionProperty(new hudson.model.StringParameterDefinition('IMAGE_TAG', '', 'Successful current master image tag')))
-job.setDefinition(new CpsFlowDefinition(new File('/opt/exam/Jenkinsfile.production').text, true))
+def definition = new File('/opt/exam/Jenkinsfile.production').text
+assert org.jenkinsci.plugins.pipeline.modeldefinition.parser.Converter.scriptToPipelineDef(definition) != null
+println('Production pipeline validation passed')
+job.setDefinition(new CpsFlowDefinition(definition, true))
 job.save()
 j.save()
