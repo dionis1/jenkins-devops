@@ -1,0 +1,35 @@
+// Administrator-owned pipeline on the separate production controller; no SCM triggers.
+pipeline {
+  agent any
+  options { disableConcurrentBuilds(); timestamps(); timeout(time: 45, unit: 'MINUTES') }
+  parameters {
+    string(name: 'IMAGE_TAG', defaultValue: '', description: 'Successful master build tag, for example 4-0123456789ab')
+  }
+  stages {
+    stage('Verify master source') {
+      steps {
+        git branch: 'master', url: 'https://github.com/dionis1/jenkins-devops.git'
+        script {
+          def commit = sh(script: 'git rev-parse --short=12 HEAD', returnStdout: true).trim()
+          if (!(params.IMAGE_TAG ==~ /[0-9]+-[0-9a-f]{12}/) || !params.IMAGE_TAG.endsWith('-' + commit)) {
+            error('Use an image tag built from the current master commit')
+          }
+        }
+      }
+    }
+    stage('Manual production approval') {
+      steps {
+        input message: "Deploy master image ${params.IMAGE_TAG} to production?", submitter: 'admindf'
+      }
+    }
+    stage('Deploy production') {
+      environment { REGISTRY = '1dionisfrangu1' }
+      steps {
+        withCredentials([file(credentialsId: 'kubeconfig-prod', variable: 'KUBECONFIG')]) {
+          withEnv(["IMAGE_TAG=${params.IMAGE_TAG}"]) { sh 'bash ci/deploy.sh prod' }
+        }
+      }
+    }
+  }
+  post { always { archiveArtifacts artifacts: 'port-forward.log', allowEmptyArchive: true } }
+}

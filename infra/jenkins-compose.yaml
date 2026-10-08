@@ -1,10 +1,55 @@
 services:
   jenkins:
-    image: jenkins/jenkins:lts-jdk21
+    image: jenkins/jenkins:2.580.1-jdk21
     ports:
       - "127.0.0.1:8081:8080"
     volumes:
       - jenkins_home:/var/jenkins_home
+      - ./jenkins-init/build.groovy:/var/jenkins_home/init.groovy.d/40-exam-isolation.groovy:ro
     restart: unless-stopped
+    networks: [build]
+  docker:
+    image: docker:29.1.3-dind
+    privileged: true
+    environment:
+      DOCKER_TLS_CERTDIR: ""
+    command: ["dockerd", "--host=tcp://0.0.0.0:2375", "--host=unix:///var/run/docker.sock"]
+    volumes:
+      - build_docker:/var/lib/docker
+      - agent_home:/home/jenkins/agent:ro
+    restart: unless-stopped
+    networks: [build]
+  agent:
+    build:
+      context: ..
+      dockerfile: infra/Jenkins.Dockerfile
+    image: exam-jenkins-tools:local
+    entrypoint: ["bash", "/opt/exam/start-agent.sh"]
+    environment:
+      JENKINS_URL: http://jenkins:8080
+      JENKINS_AGENT_SECRET_FILE: /run/secrets/agent-secret
+      DOCKER_HOST: tcp://127.0.0.1:2375
+    volumes:
+      - agent_home:/home/jenkins/agent
+      - ../.jenkins-local/agent-secret:/run/secrets/agent-secret:ro
+    # Compose test ports belong to this private Docker daemon's network namespace.
+    network_mode: service:docker
+    depends_on: [jenkins, docker]
+    restart: unless-stopped
+  production:
+    image: exam-jenkins-tools:local
+    ports:
+      - "127.0.0.1:8082:8080"
+    volumes:
+      - production_home:/var/jenkins_home
+      - ./jenkins-init/production.groovy:/var/jenkins_home/init.groovy.d/40-exam-production.groovy:ro
+    restart: unless-stopped
+    networks: [production]
 volumes:
   jenkins_home:
+  agent_home:
+  build_docker:
+  production_home:
+networks:
+  build:
+  production:

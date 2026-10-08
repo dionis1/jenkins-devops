@@ -1,0 +1,5 @@
+.git
+.jenkins-local
+deliverables
+**/__pycache__
+*.log

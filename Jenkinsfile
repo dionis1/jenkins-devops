@@ -8,8 +8,6 @@ pipeline {
   triggers { pollSCM('H/2 * * * *') }
   parameters {
     string(name: 'DOCKERHUB_USER', defaultValue: '1dionisfrangu1', description: 'DockerHub namespace')
-    string(name: 'PROD_APPROVERS', defaultValue: '', description: 'Comma-separated Jenkins user IDs allowed to approve production')
-    booleanParam(name: 'DEPLOY_PROD', defaultValue: false, description: 'Request manual production approval on master only')
   }
   stages {
     stage('Checkout') {
@@ -26,6 +24,7 @@ pipeline {
     }
     stage('Validate and build') {
       steps {
+        sh 'python3 ci/test_infra.py'
         sh 'helm lint charts; helm template cinema charts > rendered.yaml'
         sh 'docker compose -f docker-compose.yml -f ci/compose.yaml config -q'
         sh 'docker build -t "$REGISTRY/movie-service:$IMAGE_TAG" movie-service'
@@ -57,24 +56,14 @@ python3 ci/smoke.py "http://127.0.0.1:$PORT"'''
       steps { withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) { sh 'bash ci/deploy.sh qa'
         sh 'bash ci/deploy.sh staging' } }
     }
-    stage('Manual production approval') {
-      when { allOf { branch 'master'
-        expression { params.DEPLOY_PROD } } }
+    stage('Production handoff') {
+      when { branch 'master' }
       steps {
-        script {
-          if (!params.PROD_APPROVERS.trim()) { error('Configure PROD_APPROVERS before requesting production') }
-          timeout(time: 30, unit: 'MINUTES') {
-            input message: "Deploy ${env.IMAGE_TAG} to production?", submitter: params.PROD_APPROVERS
-          }
-        }
+        echo "Master image ${env.IMAGE_TAG} is ready. Open http://localhost:8082/job/production-master/ to request and approve production."
       }
     }
-    stage('Deploy production') {
-      when { allOf { branch 'master'
-        expression { params.DEPLOY_PROD } } }
-      steps { withCredentials([file(credentialsId: 'kubeconfig-prod', variable: 'KUBECONFIG')]) { sh 'bash ci/deploy.sh prod' } }
-    }
   }
+
   post {
     always {
       sh 'docker compose -f docker-compose.yml -f ci/compose.yaml logs --no-color > compose.log 2>&1 || true'

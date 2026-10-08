@@ -9,3 +9,5 @@ deliverables/*.zip
 deliverables/*.pdf
 
 deliverables/screenshots/
+
+.jenkins-local/
