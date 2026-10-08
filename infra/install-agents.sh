@@ -5,6 +5,7 @@ cd "$(dirname "$0")/.."
 umask 077
 mkdir -p .jenkins-local
 compose=(docker compose -f infra/jenkins-compose.yaml)
+# First run infra/install-rootless-profile.sh on Ubuntu (requires sudo).
 "${compose[@]}" build agent
 # Clone authentication and installed plugins only, never build jobs or credentials.
 "${compose[@]}" create production

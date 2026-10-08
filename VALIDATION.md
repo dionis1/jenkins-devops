@@ -63,3 +63,14 @@ Jenkins execution results:
 The evidence PDF and ZIP still contain the original 7 October runs; they have not
 been regenerated. The legacy application dependencies and the previously reported
 movie-update response bug were outside this change's scope.
+
+Rootless activation follow-up on 2026-10-08:
+
+- The workstation administrator installed the dedicated AppArmor profile and
+  explicitly approved the Minikube network connections.
+- Docker reports `name=rootless` from inside the persistent Jenkins agent.
+- The agent can reach the Minikube API; the production controller can authenticate
+  with its production-only credential over the approved network.
+- Earlier migration builds failed because Docker bridge isolation blocked the
+  Kubernetes API. The final Compose configuration explicitly joins the deployment
+  clients to Minikube's network; application production workloads were unaffected.

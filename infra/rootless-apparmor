@@ -1,0 +1,7 @@
+# Ubuntu 24.04+ requires an explicit user-namespace allowance for RootlessKit.
+# This profile applies only to the named Jenkins build-daemon container.
+abi <abi/4.0>,
+include <tunables/global>
+profile exam-jenkins-rootless flags=(unconfined) {
+  userns,
+}

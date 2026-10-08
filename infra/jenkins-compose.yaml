@@ -9,16 +9,19 @@ services:
     restart: unless-stopped
     networks: [build]
   docker:
-    image: docker:29.1.3-dind
+    image: docker:29.1.3-dind-rootless
     privileged: true
+    security_opt:
+      - apparmor=exam-jenkins-rootless
     environment:
       DOCKER_TLS_CERTDIR: ""
-    command: ["dockerd", "--host=tcp://0.0.0.0:2375", "--host=unix:///var/run/docker.sock"]
+      DOCKERD_ROOTLESS_ROOTLESSKIT_FLAGS: "-p 127.0.0.1:2375:2375/tcp"
+    command: ["dockerd", "--host=unix:///run/user/1000/docker.sock", "--host=tcp://0.0.0.0:2375"]
     volumes:
-      - build_docker:/var/lib/docker
+      - build_docker_rootless:/home/rootless/.local/share/docker
       - agent_home:/home/jenkins/agent:ro
     restart: unless-stopped
-    networks: [build]
+    networks: [build, cluster]
   agent:
     build:
       context: ..
@@ -44,12 +47,15 @@ services:
       - production_home:/var/jenkins_home
       - ./jenkins-init/production.groovy:/var/jenkins_home/init.groovy.d/40-exam-production.groovy:ro
     restart: unless-stopped
-    networks: [production]
+    networks: [production, cluster]
 volumes:
   jenkins_home:
   agent_home:
-  build_docker:
+  build_docker_rootless:
   production_home:
 networks:
   build:
   production:
+  cluster:
+    external: true
+    name: ${MINIKUBE_NETWORK:-minikube}

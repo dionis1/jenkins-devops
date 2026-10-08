@@ -46,19 +46,25 @@ Two local Jenkins instances separate branch builds from production credentials:
 
 The build controller has zero executors. Its inbound agent runs in a persistent
 Compose service, with Java 21 and its tools installed in an image. Docker builds
-use a separate Docker-in-Docker daemon and volume. Neither the agent nor that
+use a separate rootless Docker-in-Docker daemon and volume. Neither the agent nor that
 daemon mounts the workstation Docker socket, home directory, or administrator
 kubeconfig. The agent and daemon share a network namespace so Compose integration
 tests can use their loopback ports. The daemon's unauthenticated Docker API is
-only on the private build network, with no host port published.
+bound to loopback in the shared agent/daemon network namespace, with no host
+port published. Both deployment clients join Minikube's Docker network to reach
+its API; Kubernetes RBAC still controls their namespace access.
 
 The production controller has its own network, Jenkins home, and credentials.
 Only its fixed administrator-owned pipeline runs there. It has no Docker socket
 or build daemon access. The production credential is removed from the build
 controller. Namespace baseline Pod Security also blocks a nonproduction pipeline
 from creating privileged/hostPath pods to obtain host administrator credentials.
-This is local exam isolation; Docker-in-Docker still uses a privileged container
-and shares the workstation kernel. Use separate hosts for hostile multi-tenant CI.
+The daemon runs as UID 1000 with Docker rootless mode. On Ubuntu, a dedicated
+AppArmor profile permits its user namespaces without disabling the global
+`apparmor_restrict_unprivileged_userns` setting. Docker's official rootless image
+still requires the outer container's privileged flag for namespace setup; use
+separate hosts for hostile multi-tenant CI.
+Reference: https://docs.docker.com/engine/security/rootless/tips/
 
 ### First installation
 
@@ -83,10 +89,12 @@ Add the `dockerhub` username/password credential using your DockerHub access tok
 Then, from the repository root with the workstation's administrator kubeconfig:
 
 ```sh
+bash infra/install-rootless-profile.sh
 bash infra/install-agents.sh
 ```
 
-This builds the tools image, seeds the production instance with the main
+The first command requires sudo and installs the dedicated AppArmor profile.
+The second builds the tools image, seeds the production instance with the main
 controller's installed plugins and initial administrator authentication, generates
 both scoped kubeconfigs, and starts all services. On this workstation, the same
 existing administrator login initially works at both URLs. Only trusted production
