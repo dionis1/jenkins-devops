@@ -34,8 +34,8 @@ pipeline {
     stage('Compose integration tests') {
       steps {
         sh 'docker compose -f docker-compose.yml -f ci/compose.yaml up -d --no-build'
-        sh '''PORT=$(docker compose -f docker-compose.yml -f ci/compose.yaml port nginx 8080 | cut -d: -f2)
-python3 ci/smoke.py "http://127.0.0.1:$PORT"'''
+        sh '''PORT=$(docker compose -f docker-compose.yml -f ci/compose.yaml port nginx 8080 | awk -F: '{print $NF}')
+python3 ci/smoke.py "http://docker:$PORT"'''
       }
     }
     stage('Publish images') {

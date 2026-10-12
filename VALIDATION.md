@@ -39,9 +39,8 @@ Jenkins execution results:
 
 - Added a kubeconfig generator that writes only scoped service-account identities
   with mode 0600; regression tests check that administrator key material is excluded.
-- Ran `infra/renew-credentials.sh` successfully. Both controllers restarted and
-  loaded renewed credentials. Tokens expire on 9 October 2026 at approximately
-  09:13 Europe/Tirane time; renew before later builds.
+- Ran `infra/renew-credentials.sh` successfully on 8 October. Those tokens were
+  short-lived and expired; renew before later builds.
 - Replaced the terminal agent with a Compose service and persistent workspace.
   Docker is enabled at boot; the agent reconnects after controller restarts.
 - Agent and its separate Docker daemon have no workstation Docker socket or
@@ -72,5 +71,23 @@ Rootless activation follow-up on 2026-10-08:
 - The agent can reach the Minikube API; the production controller can authenticate
   with its production-only credential over the approved network.
 - Earlier migration builds failed because Docker bridge isolation blocked the
-  Kubernetes API. The final Compose configuration explicitly joins the deployment
-  clients to Minikube's network; application production workloads were unaffected.
+  Kubernetes API. At that time, the deployment clients shared the Minikube network.
+
+Runtime recheck on 2026-10-12:
+
+- The boot-enabled `exam-jenkins-agent.service` recreated the rootless daemon and
+  agent while preserving their named cache and workspace volumes. The daemon is
+  healthy, Docker reports rootless mode, and the agent reconnected to Jenkins.
+- Fixed Minikube network addresses avoid taking the control plane's reserved
+  `192.168.49.2`: the agent uses `.3`, and the production controller uses `.4`.
+  The build daemon remains on the private build network; only the deployment
+  clients join Minikube's network.
+- Restarted Minikube and verified the dev, qa, staging, and prod namespaces and
+  all application deployments and database StatefulSets are Ready.
+- Renewed both namespace-scoped credentials. Non-production can access dev, qa,
+  and staging but is denied prod; the production credential can modify prod but
+  is denied dev. Credentials expire after 24 hours and can be renewed with
+  `bash infra/renew-credentials.sh`.
+- Compose validation, three infrastructure regression tests, and Helm chart lint
+  passed. The evidence PDF and ZIP still contain the original 7 October runs;
+  they have not been regenerated.

@@ -48,10 +48,10 @@ The build controller has zero executors. Its inbound agent runs in a persistent
 Compose service, with Java 21 and its tools installed in an image. Docker builds
 use a separate rootless Docker-in-Docker daemon and volume. Neither the agent nor that
 daemon mounts the workstation Docker socket, home directory, or administrator
-kubeconfig. The agent and daemon share a network namespace so Compose integration
-tests can use their loopback ports. The daemon's unauthenticated Docker API is
-bound to loopback in the shared agent/daemon network namespace, with no host
-port published. Both deployment clients join Minikube's Docker network to reach
+kubeconfig. The agent connects to the daemon by its private Compose service name. Compose
+integration tests reach their temporary published port through that private
+network. The unauthenticated Docker API is exposed only on the private build
+network; no host port is published. Both deployment clients join Minikube's Docker network to reach
 its API; Kubernetes RBAC still controls their namespace access.
 
 The production controller has its own network, Jenkins home, and credentials.
@@ -91,12 +91,15 @@ Then, from the repository root with the workstation's administrator kubeconfig:
 ```sh
 bash infra/install-rootless-profile.sh
 bash infra/install-agents.sh
+sudo bash infra/install-agent-service.sh
 ```
 
 The first command requires sudo and installs the dedicated AppArmor profile.
 The second builds the tools image, seeds the production instance with the main
 controller's installed plugins and initial administrator authentication, generates
-both scoped kubeconfigs, and starts all services. On this workstation, the same
+both scoped kubeconfigs, and starts all services. The third installs and starts a
+systemd unit that recreates the rootless daemon and agent after boot, keeping their
+named Docker cache and workspace volumes. On this workstation, the same
 existing administrator login initially works at both URLs. Only trusted production
 operators should have accounts on the production instance. Keep its job
 configuration and `infra/Jenkinsfile.production` administrator-controlled.
@@ -151,11 +154,13 @@ build and production controllers respectively.
 docker compose -f infra/jenkins-compose.yaml up -d
 docker compose -f infra/jenkins-compose.yaml ps
 docker compose -f infra/jenkins-compose.yaml logs --tail=30 agent
+systemctl status exam-jenkins-agent.service
 ```
 
-All four services use `restart: unless-stopped` and persistent volumes. With Docker
-configured to start on boot, they recover without an open terminal or `/tmp`
-files. Start minikube again if necessary and renew expired tokens. Avoid
+Jenkins controllers and production use `restart: unless-stopped`. The build
+daemon and agent are started by `exam-jenkins-agent.service`; it removes and
+recreates only those two containers on boot so RootlessKit starts with a fresh
+namespace. Their named cache and workspace volumes persist. Start minikube again if necessary and renew expired tokens. Avoid
 `docker compose down -v`: it would delete Jenkins and build storage.
 
 To view the app, run `kubectl -n dev port-forward service/cinema-gateway 8080:8080`

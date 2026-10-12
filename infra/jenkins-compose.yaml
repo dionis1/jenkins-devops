@@ -15,13 +15,18 @@ services:
       - apparmor=exam-jenkins-rootless
     environment:
       DOCKER_TLS_CERTDIR: ""
-      DOCKERD_ROOTLESS_ROOTLESSKIT_FLAGS: "-p 127.0.0.1:2375:2375/tcp"
-    command: ["dockerd", "--host=unix:///run/user/1000/docker.sock", "--host=tcp://0.0.0.0:2375"]
+      DOCKERD_ROOTLESS_ROOTLESSKIT_FLAGS: "-p 0.0.0.0:2375:2375/tcp"
+    command: ["dockerd", "--host=unix:///run/user/1000/docker.sock", "--host=tcp://127.0.0.1:2375"]
     volumes:
       - build_docker_rootless:/home/rootless/.local/share/docker
       - agent_home:/home/jenkins/agent:ro
-    restart: unless-stopped
-    networks: [build, cluster]
+    restart: "no"
+    networks: [build]
+    healthcheck:
+      test: ["CMD-SHELL", "DOCKER_HOST=unix:///run/user/1000/docker.sock docker info >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
   agent:
     build:
       context: ..
@@ -31,14 +36,21 @@ services:
     environment:
       JENKINS_URL: http://jenkins:8080
       JENKINS_AGENT_SECRET_FILE: /run/secrets/agent-secret
-      DOCKER_HOST: tcp://127.0.0.1:2375
+      DOCKER_HOST: tcp://docker:2375
     volumes:
       - agent_home:/home/jenkins/agent
       - ../.jenkins-local/agent-secret:/run/secrets/agent-secret:ro
-    # Compose test ports belong to this private Docker daemon's network namespace.
-    network_mode: service:docker
-    depends_on: [jenkins, docker]
-    restart: unless-stopped
+    # The daemon API and integration test ports are reachable on this private network.
+    networks:
+      build: {}
+      cluster:
+        ipv4_address: 192.168.49.3
+    depends_on:
+      jenkins:
+        condition: service_started
+      docker:
+        condition: service_healthy
+    restart: "no"
   production:
     image: exam-jenkins-tools:local
     ports:
@@ -47,7 +59,10 @@ services:
       - production_home:/var/jenkins_home
       - ./jenkins-init/production.groovy:/var/jenkins_home/init.groovy.d/40-exam-production.groovy:ro
     restart: unless-stopped
-    networks: [production, cluster]
+    networks:
+      production: {}
+      cluster:
+        ipv4_address: 192.168.49.4
 volumes:
   jenkins_home:
   agent_home:
