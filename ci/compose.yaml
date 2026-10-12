@@ -27,4 +27,4 @@ services:
       retries: 30
   nginx:
     ports: !override
-      - "127.0.0.1::8080"
+      - "0.0.0.0::8080"
